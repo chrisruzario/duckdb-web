@@ -11,9 +11,31 @@ tag: using-duckdb
 
 In ["The Battle"](https://www.st-minutiae.com/resources/scripts/110.txt), Picard's old ship, the Stargazer, is handed back to him with a personal log aboard in which he appears to confess to an unprovoked attack. Data compares it with the ship's main computer log and reports to the first officer.
 
-| On the bridge | What the computer ran |
-|---|---|
-| **DATA:** By comparing the main Stargazer computer log with Captain Picard's personal log, I have found "checksum" discrepancies, sir.<br><br>**RIKER:** What does that mean?<br><br>**DATA:** All information is time-coded by entry, and the bits when totaled produce an aggregate amount which...<br><br>**RIKER:** I don't want a lesson in computer science! Bottom line?<br><br>**DATA:** One of these two logs is a forgery. | ```sql SELECT log_type,        count(*) AS entries,        count(*) FILTER (WHERE checksum = md5(entry))          AS checksum_valid,        count(*) FILTER (WHERE checksum <> md5(entry))          AS checksum_mismatch,        list(id ORDER BY id)          FILTER (WHERE checksum <> md5(entry))          AS mismatched_ids FROM ship_logs WHERE ship='USS Stargazer' GROUP BY log_type ORDER BY log_type ``` |
+**DATA:** By comparing the main Stargazer computer log with Captain Picard's personal log, I have found "checksum" discrepancies, sir.
+
+**RIKER:** What does that mean?
+
+**DATA:** All information is time-coded by entry, and the bits when totaled produce an aggregate amount which...
+
+**RIKER:** I don't want a lesson in computer science! Bottom line?
+
+**DATA:** One of these two logs is a forgery.
+
+```sql
+SELECT log_type,
+       count(*) AS entries,
+       count(*) FILTER (WHERE checksum = md5(entry))
+         AS checksum_valid,
+       count(*) FILTER (WHERE checksum <> md5(entry))
+         AS checksum_mismatch,
+       list(id ORDER BY id)
+         FILTER (WHERE checksum <> md5(entry))
+         AS mismatched_ids
+FROM ship_logs
+WHERE ship='USS Stargazer'
+GROUP BY log_type
+ORDER BY log_type
+```
 
 <div class="monospace_table"></div>
 
@@ -53,9 +75,21 @@ The data problems are easy to miss, because the show never calls them that. We w
 
 Most of the time nobody is even offered the lesson; the crew just asks. In ["Darmok"](https://www.st-minutiae.com/resources/scripts/202.txt), the Enterprise meets a people who speak only in references to their own stories. Troi and Data have two words to go on, and they do what anyone with a search box would do.
 
-| On the bridge | What the computer ran |
-|---|---|
-| **TROI:** Computer, search for the term "Darmok" in all linguistic databases compiled for this sector.<br><br>**COMPUTER:** Searching... "Darmok" is the name of a seventh dynasty emperor on Kanda Four... A mytho-historical hunter on Shantil Three... A colony on Malindi Seven... A frozen dessert on Razna Five... A -- | ```sql SELECT l.entry_id, l.term, l.description,        l.planet, l.sector, l.database_name FROM library l WHERE l.category = 'linguistic'   AND l.term ILIKE '%Darmok%'   AND l.sector = (SELECT sector FROM ship_status                   WHERE ship = 'USS Enterprise'                   ORDER BY ship_date DESC LIMIT 1) ORDER BY l.database_name, l.planet, l.entry_id ``` |
+**TROI:** Computer, search for the term "Darmok" in all linguistic databases compiled for this sector.
+
+**COMPUTER:** Searching... "Darmok" is the name of a seventh dynasty emperor on Kanda Four... A mytho-historical hunter on Shantil Three... A colony on Malindi Seven... A frozen dessert on Razna Five... A --
+
+```sql
+SELECT l.entry_id, l.term, l.description,
+       l.planet, l.sector, l.database_name
+FROM library l
+WHERE l.category = 'linguistic'
+  AND l.term ILIKE '%Darmok%'
+  AND l.sector = (SELECT sector FROM ship_status
+                  WHERE ship = 'USS Enterprise'
+                  ORDER BY ship_date DESC LIMIT 1)
+ORDER BY l.database_name, l.planet, l.entry_id
+```
 
 | entry_id | term | description | planet | sector | database_name |
 |---|---|---|---|---|---|
@@ -67,17 +101,37 @@ Most of the time nobody is even offered the lesson; the crew just asks. In ["Dar
 
 First 5 of 47 rows.
 
-| On the bridge | What the computer ran |
-|---|---|
-| **TROI:** -- Stop search. Computer, how many entries for "Darmok"?<br><br>**COMPUTER:** Forty-seven. | ```sql SELECT count(*) AS darmok_entries FROM library l WHERE l.category = 'linguistic'   AND l.term ILIKE '%Darmok%'   AND l.sector = (SELECT sector FROM ship_status                   WHERE ship = 'USS Enterprise'                   ORDER BY ship_date DESC LIMIT 1) ``` |
+**TROI:** -- Stop search. Computer, how many entries for "Darmok"?
+
+**COMPUTER:** Forty-seven.
+
+```sql
+SELECT count(*) AS darmok_entries
+FROM library l
+WHERE l.category = 'linguistic'
+  AND l.term ILIKE '%Darmok%'
+  AND l.sector = (SELECT sector FROM ship_status
+                  WHERE ship = 'USS Enterprise'
+                  ORDER BY ship_date DESC LIMIT 1)
+```
 
 | darmok_entries |
 |---|
 | 47 |
 
-| On the bridge | What the computer ran |
-|---|---|
-| **DATA:** Computer, search for the term "Tanagra." All databases.<br><br>**COMPUTER:** Searching... Tanagra is the name of the ruling family on Gallos Two... A ceremonial drink on Lerishi Four... An island-continent on Shantil Three --<br><br>**DATA:** -- Stop. | ```sql SELECT entry_id, term, description, planet,        sector, database_name, category FROM library WHERE term ILIKE '%Tanagra%' ORDER BY database_name, planet, entry_id ``` |
+**DATA:** Computer, search for the term "Tanagra." All databases.
+
+**COMPUTER:** Searching... Tanagra is the name of the ruling family on Gallos Two... A ceremonial drink on Lerishi Four... An island-continent on Shantil Three --
+
+**DATA:** -- Stop.
+
+```sql
+SELECT entry_id, term, description, planet,
+       sector, database_name, category
+FROM library
+WHERE term ILIKE '%Tanagra%'
+ORDER BY database_name, planet, entry_id
+```
 
 | entry_id | term | description | planet | sector | database_name | category |
 |---|---|---|---|---|---|---|
@@ -89,9 +143,24 @@ First 5 of 47 rows.
 
 First 5 of 11 rows.
 
-| On the bridge | What the computer ran |
-|---|---|
-| **TROI:** Shantil Three? Computer, cross-reference the last entry with the previous search index.<br><br>**COMPUTER:** "Darmok" is the name of a mytho-historical hunter on Shantil Three. | ```sql SELECT t.planet, t.sector,        d.term AS darmok_term,        d.description AS darmok_meaning,        d.database_name AS darmok_database,        t.term AS tanagra_term,        t.description AS tanagra_meaning,        t.database_name AS tanagra_database FROM library t JOIN library d ON d.planet = t.planet              AND d.term ILIKE '%Darmok%' WHERE t.term ILIKE '%Tanagra%'   AND t.planet = 'Shantil III' ``` |
+**TROI:** Shantil Three? Computer, cross-reference the last entry with the previous search index.
+
+**COMPUTER:** "Darmok" is the name of a mytho-historical hunter on Shantil Three.
+
+```sql
+SELECT t.planet, t.sector,
+       d.term AS darmok_term,
+       d.description AS darmok_meaning,
+       d.database_name AS darmok_database,
+       t.term AS tanagra_term,
+       t.description AS tanagra_meaning,
+       t.database_name AS tanagra_database
+FROM library t
+JOIN library d ON d.planet = t.planet
+             AND d.term ILIKE '%Darmok%'
+WHERE t.term ILIKE '%Tanagra%'
+  AND t.planet = 'Shantil III'
+```
 
 | planet | sector | darmok_term | darmok_meaning | darmok_database | tanagra_term | tanagra_meaning | tanagra_database |
 |---|---|---|---|---|---|---|---|
@@ -101,9 +170,17 @@ A search with too many hits, a count, a second search, and a join that takes 47 
 
 In ["Hollow Pursuits"](https://www.st-minutiae.com/resources/scripts/169.txt) the ship is about to tear itself apart and Geordi narrows the cause one sentence at a time.
 
-| In Engineering | What the computer ran |
-|---|---|
-| **GEORDI:** Computer, list all physical substances that wouldn't normally be picked up by internal scans.<br><br>**COMPUTER:** There are fifteen thousand five hundred twenty-five known substances that cannot be detected by standard scans. | ```sql SELECT name, stable_in_oxygen, alters_materials,        half_life_s, toxicity, last_used_year FROM substances WHERE NOT detectable_by_internal_scan ORDER BY name ``` |
+**GEORDI:** Computer, list all physical substances that wouldn't normally be picked up by internal scans.
+
+**COMPUTER:** There are fifteen thousand five hundred twenty-five known substances that cannot be detected by standard scans.
+
+```sql
+SELECT name, stable_in_oxygen, alters_materials,
+       half_life_s, toxicity, last_used_year
+FROM substances
+WHERE NOT detectable_by_internal_scan
+ORDER BY name
+```
 
 | name | stable_in_oxygen | alters_materials | half_life_s | toxicity | last_used_year |
 |---|---|---|---|---|---|
@@ -115,17 +192,34 @@ In ["Hollow Pursuits"](https://www.st-minutiae.com/resources/scripts/169.txt) th
 
 First 5 of 15,525 rows.
 
-| In Engineering | What the computer ran |
-|---|---|
-| **GEORDI:** Great. How many of those can exist in an oxygen atmosphere?<br><br>**COMPUTER:** Five hundred thirty-two. | ```sql SELECT count(*) AS undetectable_and_stable_in_oxygen FROM substances WHERE NOT detectable_by_internal_scan   AND stable_in_oxygen ``` |
+**GEORDI:** Great. How many of those can exist in an oxygen atmosphere?
+
+**COMPUTER:** Five hundred thirty-two.
+
+```sql
+SELECT count(*) AS undetectable_and_stable_in_oxygen
+FROM substances
+WHERE NOT detectable_by_internal_scan
+  AND stable_in_oxygen
+```
 
 | undetectable_and_stable_in_oxygen |
 |---|
 | 532 |
 
-| In Engineering | What the computer ran |
-|---|---|
-| **GEORDI:** And could alter molecular structure when it comes in contact with... with glass.<br><br>**COMPUTER:** Five. | ```sql SELECT name, alters_materials, half_life_s,        toxicity, last_used_year, molecular_structure FROM substances WHERE NOT detectable_by_internal_scan   AND stable_in_oxygen   AND list_contains(alters_materials, 'glass') ORDER BY name ``` |
+**GEORDI:** And could alter molecular structure when it comes in contact with... with glass.
+
+**COMPUTER:** Five.
+
+```sql
+SELECT name, alters_materials, half_life_s,
+       toxicity, last_used_year, molecular_structure
+FROM substances
+WHERE NOT detectable_by_internal_scan
+  AND stable_in_oxygen
+  AND list_contains(alters_materials, 'glass')
+ORDER BY name
+```
 
 | name | alters_materials | half_life_s | toxicity | last_used_year | molecular_structure |
 |---|---|---|---|---|---|
